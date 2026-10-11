@@ -3,7 +3,7 @@
 """通过 GitHub API 部署本项目（本机 git clone/push 不可用时的替代通道）。
 
 用法（GITHUB_TOKEN 需具备 repo + workflow 权限）：
-  python scripts/deploy.py upload                     # 上传/更新全部项目文件
+  python scripts/deploy.py upload [文件...]            # 上传/更新全部或指定项目文件
   python scripts/deploy.py secret NAME VALUE          # 设置仓库 Actions Secret
   python scripts/deploy.py trigger                    # 手动触发一次监控工作流
   python scripts/deploy.py status                     # 查看最近几次运行结果
@@ -16,6 +16,7 @@
 from __future__ import annotations
 
 import base64
+import hashlib
 import os
 import sys
 from pathlib import Path
@@ -66,15 +67,22 @@ def collect_files() -> list[Path]:
     return files
 
 
-def upload() -> None:
+def upload(only: list[str] | None = None) -> None:
     ok = fail = 0
     for p in collect_files():
         rel = p.relative_to(ROOT).as_posix()
-        content = base64.b64encode(p.read_bytes()).decode()
-        body: dict = {"message": f"deploy: 更新 {rel}", "content": content, "branch": "main"}
+        if only and rel not in only:
+            continue
+        raw = p.read_bytes()
+        blob_sha = hashlib.sha1(b"blob " + str(len(raw)).encode() + b"\0" + raw).hexdigest()
+        body: dict = {"message": f"deploy: 更新 {rel}", "branch": "main"}
         r = call("GET", f"/repos/{REPO}/contents/{rel}")
         if r.status_code == 200:
+            if r.json().get("sha") == blob_sha:
+                print(f"SKIP {rel}（内容未变）")
+                continue
             body["sha"] = r.json()["sha"]
+        body["content"] = base64.b64encode(raw).decode()
         r = call("PUT", f"/repos/{REPO}/contents/{rel}", json=body)
         if r.status_code in (200, 201):
             ok += 1
@@ -127,7 +135,7 @@ def main() -> int:
         return 2
     cmd = sys.argv[1] if len(sys.argv) > 1 else ""
     if cmd == "upload":
-        upload()
+        upload(sys.argv[2:])
     elif cmd == "secret":
         secret(sys.argv[2], sys.argv[3])
     elif cmd == "trigger":
