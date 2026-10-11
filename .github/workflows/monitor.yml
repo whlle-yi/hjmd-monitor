@@ -1,0 +1,43 @@
+name: 网页更新监控
+
+on:
+  schedule:
+    # GitHub Actions 最短允许间隔为 5 分钟
+    - cron: '*/5 * * * *'
+  # 支持在 Actions 页面手动触发（部署后测试用）
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: web-monitor
+  cancel-in-progress: false
+
+jobs:
+  monitor:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 安装 Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: 安装依赖
+        run: pip install -r requirements.txt
+
+      - name: 执行监控
+        env:
+          SMTP_HOST: ${{ secrets.SMTP_HOST }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASS: ${{ secrets.SMTP_PASS }}
+          MAIL_TO: ${{ secrets.MAIL_TO }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python src/monitor.py
