@@ -3,6 +3,12 @@
     {
       "name": "全国大学生数学建模竞赛江西赛区·获奖名单",
       "url": "https://sxjm.jxust.edu.cn/hjmd.htm"
+    },
+    {
+      "name": "全国大学生数学建模竞赛官网·历年竞赛结果",
+      "url": "https://www.mcm.edu.cn/html_cn/block/018500ec1a6bd8c7e9997133def2b590.html",
+      "require_date": false,
+      "title_pattern": "20\\d{2}"
     }
   ],
   "request_timeout": 30,
