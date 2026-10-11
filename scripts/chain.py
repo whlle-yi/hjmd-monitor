@@ -7,7 +7,8 @@
 
 - 自调节：唤起前检查最近的其他运行，若有运行在本周期内刚启动，则跳过本次唤起，
   保证无论定时器、手动触发还是多条历史链并发，始终只有一条链在维持节奏；
-- 健壮：对 GitHub API 的调用带重试，瞬时故障不会断链；
+- 健壮：对 GitHub API 的调用带重试；拿不到本运行的启动时间时按「刚启动」处理，
+  宁可多等也不会断链或加速；
 - 兜底：monitor.yml 中的 cron 保持不变，即使这条链意外断掉，定时器也会把监控拉起来。
 """
 
@@ -51,15 +52,27 @@ def api(method: str, path: str, body: dict | None = None, retries: int = 3):
 
 
 def parse_ts(s: str) -> datetime.datetime:
-    return datetime.datetime.strptime(s, "%Y-%m-%dT%H:%M:%SZ").replace(
-        tzinfo=datetime.timezone.utc
-    )
+    return datetime.datetime.fromisoformat(s.replace("Z", "+00:00"))
+
+
+def my_started_at() -> datetime.datetime | None:
+    """本运行的启动时间；拿不到就返回 None（调用方按「刚启动」处理）。"""
+    if RUN_ID:
+        obj = api("GET", f"/actions/runs/{RUN_ID}")
+        if isinstance(obj, dict) and obj.get("started_at"):
+            return parse_ts(obj["started_at"])
+        # 兜底：从运行列表里找自己
+        lst = api("GET", "/actions/runs?per_page=20")
+        for r in lst.get("workflow_runs", []) if isinstance(lst, dict) else []:
+            if str(r.get("id")) == str(RUN_ID) and r.get("started_at"):
+                return parse_ts(r["started_at"])
+    print(f"警告：未能确定本运行启动时间（GITHUB_RUN_ID={RUN_ID or '缺失'}），按刚启动处理")
+    return None
 
 
 def main() -> int:
     # 1) 间距控制：从本运行启动时刻算起，凑满一个周期再触发
-    mine = api("GET", f"/actions/runs/{RUN_ID}")
-    started = parse_ts(mine["started_at"])
+    started = my_started_at() or datetime.datetime.now(datetime.timezone.utc)
     now = datetime.datetime.now(datetime.timezone.utc)
     wait = max(0.0, TARGET - (now - started).total_seconds())
     print(f"本运行已进行 {(now - started).total_seconds():.0f}s，"
@@ -67,11 +80,12 @@ def main() -> int:
     time.sleep(wait)
 
     # 2) 自调节：若周期内有其他运行刚启动，说明已有链在维持节奏，跳过
-    runs = api("GET", "/actions/runs?per_page=5")["workflow_runs"]
+    runs = api("GET", "/actions/runs?per_page=5").get("workflow_runs", [])
     now = datetime.datetime.now(datetime.timezone.utc)
     recent = [
         r for r in runs
-        if str(r["id"]) != str(RUN_ID)
+        if str(r.get("id")) != str(RUN_ID)
+        and r.get("created_at")
         and 0 <= (now - parse_ts(r["created_at"])).total_seconds() < TARGET + 60
     ]
     if recent:
