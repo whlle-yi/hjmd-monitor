@@ -2,13 +2,15 @@ name: 网页更新监控
 
 on:
   schedule:
-    # GitHub Actions 最短间隔 5 分钟；错开整点高峰（:00/:05 最易被丢弃）
+    # GitHub Actions 最短间隔 5 分钟；错开整点高峰。
+    # 定时器只作保底/自愈：主节奏由运行末尾的「接力触发」维持（见 scripts/chain.py）
     - cron: '4-59/5 * * * *'
-  # 支持在 Actions 页面手动触发（部署后测试用）
+  # 支持在 Actions 页面手动触发
   workflow_dispatch:
 
 permissions:
   contents: write
+  actions: write
 
 concurrency:
   group: web-monitor
@@ -41,3 +43,10 @@ jobs:
           MAIL_TO: ${{ secrets.MAIL_TO }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: python src/monitor.py
+
+      - name: 接力触发下一次运行
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TARGET_INTERVAL: '280'
+        run: python3 scripts/chain.py
