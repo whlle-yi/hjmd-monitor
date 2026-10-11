@@ -1,8 +1,9 @@
-# hjmd-monitor — 获奖名单页面更新监控
+# hjmd-monitor — 数学建模获奖名单页面更新监控
 
-监控 **全国大学生数学建模竞赛江西赛区官网「获奖名单」页面**：
+监控以下页面，任一页面有更新即自动发邮件提醒（收件邮箱见仓库 Secrets `MAIL_TO`）：
 
-> https://sxjm.jxust.edu.cn/hjmd.htm
+- 全国大学生数学建模竞赛江西赛区官网「获奖名单」：https://sxjm.jxust.edu.cn/hjmd.htm
+- 全国大学生数学建模竞赛官网「历年竞赛结果」：https://www.mcm.edu.cn/html_cn/block/018500ec1a6bd8c7e9997133def2b590.html
 
 页面一有更新（新公告、条目修改等），自动发邮件提醒。程序运行在 **GitHub Actions 云端**，与本机无关——电脑关机、换网络都不影响监控。
 
@@ -58,7 +59,9 @@ hjmd-monitor/
 
 - **手动触发检查**：Actions → 网页更新监控 → Run workflow。
 - **改检查频率**：改 `monitor.yml` 中 `cron`（GitHub 限制最短 `*/5`）。注意 Actions 定时触发可能延迟几分钟，属正常现象。
-- **增加监控页面**：在 `config/monitor.json` 的 `urls` 数组里加一项即可，通知、状态、差异全部自动支持。
+- **增加监控页面**：在 `config/monitor.json` 的 `urls` 数组里加一项，可选参数：
+  - `require_date`（默认 `true`）：是否要求条目旁有「20XX年X月X日」格式的日期；纯链接列表页设为 `false`；
+  - `title_pattern`：按标题正则过滤条目（如官网历年结果页设 `"20\\d{2}"` 只保留带年份的获奖名单链接）。
 - **收不到邮件**：先检查垃圾箱；再把发件邮箱加入联系人/白名单。
 - **本地调试**（可选）：`python src/monitor.py --dry-run`——不发邮件、不推送，邮件内容打印到终端。
 
