@@ -71,20 +71,24 @@ def write_json(path: Path, data) -> None:
 # ---------------------------------------------------------------- 抓取与解析
 
 def fetch(url: str, timeout: int, retries: int = 3) -> str:
+    """抓取页面：先走系统代理（若配置了），失败自动直连重试。"""
     last_err = "unknown"
     for attempt in range(1, retries + 1):
-        try:
-            r = requests.get(
-                url,
-                headers={"User-Agent": UA, "Accept-Language": "zh-CN,zh;q=0.9"},
-                timeout=timeout,
-            )
-            if r.status_code == 200:
-                r.encoding = r.apparent_encoding or "utf-8"
-                return r.text
-            last_err = f"HTTP {r.status_code}"
-        except Exception as exc:  # 网络抖动等
-            last_err = repr(exc)
+        for direct in (False, True):
+            try:
+                sess = requests.Session()
+                sess.trust_env = not direct
+                r = sess.get(
+                    url,
+                    headers={"User-Agent": UA, "Accept-Language": "zh-CN,zh;q=0.9"},
+                    timeout=timeout,
+                )
+                if r.status_code == 200:
+                    r.encoding = r.apparent_encoding or "utf-8"
+                    return r.text
+                last_err = f"HTTP {r.status_code}"
+            except Exception as exc:  # 网络抖动、代理不可用等
+                last_err = repr(exc)
         log(f"抓取失败（第 {attempt}/{retries} 次）：{last_err}")
         time.sleep(3 * attempt)
     raise RuntimeError(f"连续 {retries} 次抓取失败，最后错误：{last_err}")
@@ -103,35 +107,52 @@ def visible_text(page_html: str) -> str:
     return "\n".join(lines)
 
 
-def parse_entries(soup: BeautifulSoup, base_url: str) -> list[dict]:
-    """解析公告列表：标题、日期、链接。优先取 DataGrid1 表格，取不到则整页兜底。"""
+def parse_entries(
+    soup: BeautifulSoup, base_url: str,
+    require_date: bool = True, title_pattern: str | None = None,
+) -> list[dict]:
+    """解析公告列表：标题、日期、链接。
+
+    require_date=True  适用于「标题 + 日期」式列表页（如江西赛区获奖名单）；
+    require_date=False 适用于纯链接列表页（如竞赛官网历年结果页，条目无日期），
+    此时收集页面正文中所有像条目的链接（标题 >= 6 字，跳过自引用与去重）。
+    title_pattern     按标题正则过滤（如 "20\\\\d{2}" 只保留带年份的条目）。
+    """
+    pattern = re.compile(title_pattern) if title_pattern else None
     entries: list[dict] = []
     seen: set[str] = set()
+    base = base_url.rstrip("/")
 
-    def add(a) -> None:
+    def add(a, need_date: bool) -> None:
         title = re.sub(r"\s+", " ", a.get_text(" ", strip=True)).strip()
-        if len(title) < 5:
+        if len(title) < (5 if need_date else 6):
+            return
+        if pattern and not pattern.search(title):
             return
         href = urljoin(base_url, a["href"])
-        if href in seen:
+        if href.rstrip("/") == base or href in seen:
             return
         container = a.find_parent("tr") or a.find_parent("td") or a.parent
         text_around = container.get_text(" ", strip=True) if container else ""
         m = DATE_RE.search(text_around)
-        if not m:
+        if need_date and not m:
             return
         seen.add(href)
-        entries.append({"title": title, "date": m.group(0), "href": href})
+        entries.append({"title": title, "date": m.group(0) if m else "", "href": href})
 
     table = soup.find("table", id="DataGrid1")
     if table:
         for tr in table.find_all("tr"):
             a = tr.find("a", href=True)
             if a:
-                add(a)
-    if not entries:  # 兜底：整页找「链接 + 日期」的组合
-        for a in soup.find_all("a", href=True):
-            add(a)
+                add(a, require_date)
+    if not entries:  # 兜底
+        if require_date:  # 整页找「链接 + 日期」的组合
+            for a in soup.find_all("a", href=True):
+                add(a, True)
+        else:  # 无日期模式：收集全部像条目的链接
+            for a in soup.find_all("a", href=True):
+                add(a, False)
     return entries
 
 
@@ -169,6 +190,10 @@ def build_diff(old_page: dict, new_entries: list[dict], new_text: str) -> dict:
     }
 
 
+def fmt_date(date: str) -> str:
+    return f"【{date}】" if date else ""
+
+
 def change_mail(name: str, url: str, diff: dict, entries: list[dict]):
     """内容变化提醒邮件，返回 (subject, text, html)。"""
     subject = f"【网页更新提醒】{name} 检测到更新"
@@ -183,7 +208,7 @@ def change_mail(name: str, url: str, diff: dict, entries: list[dict]):
     if diff["added"]:
         lines.append(f"新增公告 {len(diff['added'])} 条：")
         for e in diff["added"]:
-            lines.append(f"  · {e['date']}  {e['title']}")
+            lines.append(f"  · {fmt_date(e['date'])}{e['title']}")
             lines.append(f"    {e['href']}")
         lines.append("")
     if diff["retitled"]:
@@ -202,7 +227,7 @@ def change_mail(name: str, url: str, diff: dict, entries: list[dict]):
         lines.append("")
     lines.append("当前最新公告（前 10 条）：")
     for e in entries[:10]:
-        lines.append(f"  · {e['date']}  {e['title']}")
+        lines.append(f"  · {fmt_date(e['date'])}{e['title']}")
     if len(entries) > 10:
         lines.append(f"  ……共 {len(entries)} 条")
     lines.append("")
@@ -216,7 +241,7 @@ def change_mail(name: str, url: str, diff: dict, entries: list[dict]):
     ]
     if diff["added"]:
         items = "".join(
-            f'<li style="margin:6px 0">【{esc(e["date"])}】'
+            f'<li style="margin:6px 0">{esc(fmt_date(e["date"]))}'
             f'<a href="{esc(e["href"])}">{esc(e["title"])}</a></li>'
             for e in diff["added"]
         )
@@ -236,7 +261,7 @@ def change_mail(name: str, url: str, diff: dict, entries: list[dict]):
             f'<pre style="white-space:pre-wrap;background:#f6f6f6;padding:10px">{snip}</pre>'
         )
     items = "".join(
-        f'<li style="margin:4px 0">【{esc(e["date"])}】'
+        f'<li style="margin:4px 0">{esc(fmt_date(e["date"]))}'
         f'<a href="{esc(e["href"])}">{esc(e["title"])}</a></li>'
         for e in entries[:10]
     )
@@ -417,7 +442,11 @@ def main() -> int:
         # ---- 解析与对比
         soup = BeautifulSoup(page_html, "html.parser")
         text = visible_text(page_html)
-        entries = parse_entries(soup, url)
+        entries = parse_entries(
+            soup, url,
+            require_date=bool(item.get("require_date", True)),
+            title_pattern=item.get("title_pattern"),
+        )
         digest = hashlib.sha256(text.encode("utf-8")).hexdigest()
         page = state["pages"].get(url)
 
