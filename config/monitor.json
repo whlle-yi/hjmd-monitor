@@ -1,0 +1,11 @@
+{
+  "urls": [
+    {
+      "name": "全国大学生数学建模竞赛江西赛区·获奖名单",
+      "url": "https://sxjm.jxust.edu.cn/hjmd.htm"
+    }
+  ],
+  "request_timeout": 30,
+  "failure_alert_after": 6,
+  "keepalive_days": 7
+}
