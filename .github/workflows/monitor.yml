@@ -19,7 +19,7 @@ concurrency:
 jobs:
   monitor:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
     steps:
       - name: 检出代码
         uses: actions/checkout@v4
@@ -34,6 +34,27 @@ jobs:
       - name: 安装依赖
         run: pip install -r requirements.txt
 
+      # 国赛官网/报名系统的《获奖名单》是扫描件，要用 OCR 才读得出人名。
+      # 模型约 42MB，缓存起来，避免每轮都重下。
+      - name: 缓存中文 OCR 模型
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/tessdata
+          key: tessdata-chi-sim-standard-v1
+
+      - name: 准备中文 OCR 模型
+        run: |
+          if ! command -v tesseract >/dev/null; then
+            sudo apt-get update -qq && sudo apt-get install -y -qq tesseract-ocr
+          fi
+          mkdir -p "${{ runner.temp }}/tessdata"
+          F="${{ runner.temp }}/tessdata/chi_sim.traineddata"
+          if [ ! -s "$F" ]; then
+            curl -fsSL -o "$F" \
+              https://raw.githubusercontent.com/tesseract-ocr/tessdata/main/chi_sim.traineddata
+          fi
+          ls -lh "$F"
+
       - name: 执行监控
         env:
           SMTP_HOST: ${{ secrets.SMTP_HOST }}
@@ -42,6 +63,7 @@ jobs:
           SMTP_PASS: ${{ secrets.SMTP_PASS }}
           MAIL_TO: ${{ secrets.MAIL_TO }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TESSDATA_PREFIX: ${{ runner.temp }}/tessdata
         run: python src/monitor.py
 
       - name: 接力触发下一次运行

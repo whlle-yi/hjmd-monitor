@@ -9,9 +9,45 @@
       "url": "https://www.mcm.edu.cn/html_cn/block/018500ec1a6bd8c7e9997133def2b590.html",
       "require_date": false,
       "title_pattern": "20\\d{2}"
+    },
+    {
+      "name": "全国大学生数学建模竞赛官网·通知公告",
+      "url": "https://cumcm.cnki.net/cumcm/studentHome/noticeList",
+      "api": {
+        "url": "https://cumcm.cnki.net/cumcm/NoticeManage/GetPubNotice",
+        "method": "POST",
+        "referer": "https://cumcm.cnki.net/cumcm/studentHome/noticeList",
+        "data": {
+          "keyWord": "",
+          "pageIndex": 1,
+          "pageSize": 50
+        },
+        "list_path": "Data.data",
+        "title_field": "Title",
+        "date_field": "PublishTime",
+        "id_field": "Id",
+        "content_field": "Content",
+        "href_template": "https://cumcm.cnki.net/cumcm/studentHome/noticeDetail?id={id}"
+      }
     }
   ],
   "request_timeout": 30,
   "failure_alert_after": 6,
-  "keepalive_days": 7
+  "keepalive_days": 7,
+  "award_watch": {
+    "enabled": true,
+    "year": 2026,
+    "title_include": "获奖名单",
+    "title_exclude": "拟推荐|推荐参评|推荐全国|评审|省赛|省级|市赛|赛区|江西省大学生数学建模竞赛",
+    "school": "江西财经大学",
+    "name": "魏淑诺",
+    "region": "江西",
+    "max_file_mb": 40,
+    "retry_attempts": 3,
+    "ocr": true,
+    "ocr_dpi": 220,
+    "ocr_max_pages": 80,
+    "ocr_budget_sec": 300,
+    "tessdata": ""
+  }
 }
