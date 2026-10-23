@@ -268,12 +268,40 @@ def tesseract_ok(tessdata: str | None = None) -> bool:
         return False
 
 
+def _drop_hlines(path: str) -> None:
+    """去掉表格的长横网格线（保留竖线）。
+
+    2026 版全国名单扫描件的横线会被 OCR 认成「一」，把整行文本搅成乱码；
+    去掉横线后行文本恢复可读，竖线则保留下来当单元格分隔符。
+    """
+    import numpy as np
+    from PIL import Image
+
+    img = np.asarray(Image.open(path).convert("L"))
+    binary = img < 128
+    K = 300  # 行内连续 300px 全黑才算横线（字符笔画远短于这个长度）
+    run = np.cumsum(binary.astype(np.int32), axis=1)
+    full = (run[:, K:] - run[:, :-K]) == K
+    hline = np.zeros_like(binary)
+    off = K // 2
+    hline[:, off:off + full.shape[1]] = full
+    if hline.any():
+        clean = binary & ~hline
+        Image.fromarray(np.where(clean, 0, 255).astype(np.uint8)).save(path)
+
+
+def _norm_seps(text: str) -> str:
+    """把竖线的各种误认形态（\\ I _ /）归一化成 |，便于按格切分。"""
+    return re.sub(r"(?:(?<=\s)|^)[\\I/|_]+(?:(?=\s)|$)", "|", text)
+
+
 def _ocr(pix) -> str:
     exe = shutil.which("tesseract")
     fd, path = tempfile.mkstemp(suffix=".png")
     os.close(fd)
     try:
         pix.save(path)
+        _drop_hlines(path)
         r = subprocess.run(
             [exe, path, "stdout", "-l", "chi_sim", "--psm", "6"],
             capture_output=True, text=True, encoding="utf-8", errors="replace",
@@ -281,7 +309,7 @@ def _ocr(pix) -> str:
         )
         if r.returncode != 0 and not (r.stdout or "").strip():
             log(f"OCR 失败：{(r.stderr or '').strip()[:160]}")
-        return r.stdout or ""
+        return _norm_seps(r.stdout or "")
     finally:
         try:
             os.unlink(path)
