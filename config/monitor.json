@@ -27,7 +27,8 @@
         "date_field": "PublishTime",
         "id_field": "Id",
         "content_field": "Content",
-        "href_template": "https://cumcm.cnki.net/cumcm/studentHome/noticeDetail?id={id}"
+        "href_template": "https://cumcm.cnki.net/cumcm/studentHome/noticeDetail?id={id}",
+        "warmup": true
       }
     }
   ],

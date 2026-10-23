@@ -75,6 +75,13 @@ def write_json(path: Path, data) -> None:
 
 # ---------------------------------------------------------------- 抓取与解析
 
+BLOCKED_CODES = {403, 418, 429}  # 418 是 WAF 常用的「我不给你看」
+
+
+class SiteBlocked(RuntimeError):
+    """站点拒绝访问（反爬/WAF），不是站点故障——不该算进「连续抓取失败」并惊醒用户。"""
+
+
 def _send(sess: requests.Session, method: str, url: str, **kw):
     """发一次请求；证书校验失败时降级为不校验再试一次。
 
@@ -144,14 +151,29 @@ def fetch_api(item: dict, timeout: int, retries: int = 3) -> dict:
     code_ok = api.get("code_ok", 200)
 
     last_err = "unknown"
+    blocked = 0
     for attempt in range(1, retries + 1):
         for direct in (False, True):
             try:
                 sess = requests.Session()
                 sess.trust_env = not direct
+                # 会话预热：先像浏览器一样打开页面拿 Cookie，WAF 常常只认这一步
+                if api.get("warmup") or item.get("warmup"):
+                    try:
+                        page = item["url"]
+                        _send(sess, "GET", page, headers={
+                            "User-Agent": UA, "Accept-Language": "zh-CN,zh;q=0.9",
+                            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+                        }, timeout=timeout)
+                    except Exception as exc:
+                        log(f"预热页面失败（继续尝试接口）：{exc!r}"[:160])
                 sep = "&" if "?" in url else "?"
                 bust = f"{url}{sep}_t={int(time.time() * 1000)}"  # 绕开接口/CDN 缓存
                 r = _send(sess, method, bust, headers=headers, data=data, timeout=timeout)
+                if r.status_code in BLOCKED_CODES:
+                    blocked += 1
+                    last_err = f"HTTP {r.status_code}（站点拒绝访问）"
+                    continue
                 if r.status_code != 200:
                     last_err = f"HTTP {r.status_code}"
                     continue
@@ -167,6 +189,8 @@ def fetch_api(item: dict, timeout: int, retries: int = 3) -> dict:
                 last_err = repr(exc)
         log(f"接口抓取失败（第 {attempt}/{retries} 次）：{last_err}")
         time.sleep(3 * attempt)
+    if blocked:
+        raise SiteBlocked(f"{item.get('name', '')} 被站点反爬拦截（{last_err}）")
     raise RuntimeError(f"连续 {retries} 次接口抓取失败，最后错误：{last_err}")
 
 
@@ -792,6 +816,13 @@ def main() -> int:
         # ---- 抓取与解析
         try:
             entries, text = collect(item, int(cfg.get("request_timeout", 30)))
+        except SiteBlocked as exc:
+            # 站点反爬拦截：不是故障，不计入失败次数、也不发异常提醒
+            log(f"{name} 被站点拒绝访问，本轮跳过（该页在云端可能一直不可用）：{exc}")
+            if state["failures"].get(url):
+                state["failures"][url] = 0
+                state_dirty = True
+            continue
         except Exception as exc:
             count = state["failures"].get(url, 0) + 1
             state["failures"][url] = count
