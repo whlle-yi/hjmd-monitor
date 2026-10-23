@@ -195,8 +195,13 @@
       "last_change": "2026-10-22 14:35:57"
     },
     "https://raw.githubusercontent.com/whlle-yi/hjmd-monitor/main/sim/index.html": {
-      "text_hash": "773a94112373783bc3c38587b880727abb65bd490af0d727575d55a5259d014b",
+      "text_hash": "ce6476ee1f8e4b1c7b2ee0fdb99c80896741ed2e89607ee8cfe16bf12b47bc9a",
       "entries": [
+        {
+          "title": "2026高教社杯全国大学生数学建模竞赛获奖名单（模拟演练）",
+          "date": "",
+          "href": "https://raw.githubusercontent.com/whlle-yi/hjmd-monitor/main/sim/detail.html"
+        },
         {
           "title": "2025高教社杯全国大学生数学建模竞赛获奖名单",
           "date": "",
@@ -208,8 +213,8 @@
           "href": "https://raw.githubusercontent.com/whlle-yi/hjmd-monitor/main/sim/detail2024.html"
         }
       ],
-      "text": "历年竞赛结果（模拟演练）\n历年竞赛结果\n2025高教社杯全国大学生数学建模竞赛获奖名单\n2024高教社杯全国大学生数学建模竞赛获奖名单",
-      "last_change": "2026-10-24 01:19:00"
+      "text": "历年竞赛结果（模拟演练）\n历年竞赛结果\n2026高教社杯全国大学生数学建模竞赛获奖名单（模拟演练）\n2025高教社杯全国大学生数学建模竞赛获奖名单\n2024高教社杯全国大学生数学建模竞赛获奖名单",
+      "last_change": "2026-10-24 01:30:05"
     }
   },
   "failures": {
@@ -219,5 +224,38 @@
     "https://raw.githubusercontent.com/whlle-yi/hjmd-monitor/main/sim/index.html": 0
   },
   "failure_alerted": {},
-  "awards": {}
+  "awards": {
+    "https://raw.githubusercontent.com/whlle-yi/hjmd-monitor/main/sim/detail.html": {
+      "title": "2026高教社杯全国大学生数学建模竞赛获奖名单（模拟演练）",
+      "status": "found",
+      "attempts": 1,
+      "checked_at": "2026-10-24 01:30:02",
+      "files": [
+        {
+          "url": "https://raw.githubusercontent.com/whlle-yi/hjmd-monitor/main/sim/list.pdf",
+          "kind": "PDF（1 页）"
+        }
+      ],
+      "hit": {
+        "school": "江西财经大学",
+        "name": "魏淑诺",
+        "seq": "47",
+        "topic": "",
+        "members": [
+          "盛德云龙",
+          "钟明皓",
+          "魏淑诺"
+        ],
+        "teacher": "华长生",
+        "level": "本科组全国一等奖（共294名）",
+        "recommend": "",
+        "snippet": "江西财经大学 / 盛德云龙 / 钟明皓 / 魏淑诺 / 华长生 / 48 / 江西理工大学 / 胡剑威 / 梁圣宇 / 刘佳兴 / 蔡序军 / 本科组全国二等奖（共1200名）",
+        "file": "https://raw.githubusercontent.com/whlle-yi/hjmd-monitor/main/sim/list.pdf",
+        "kind": "PDF（1 页）"
+      }
+    }
+  },
+  "reported_files": [
+    "https://raw.githubusercontent.com/whlle-yi/hjmd-monitor/main/sim/list.pdf"
+  ]
 }
