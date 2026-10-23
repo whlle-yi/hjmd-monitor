@@ -149,6 +149,9 @@ def fetch_api(item: dict, timeout: int, retries: int = 3) -> dict:
         headers["Referer"] = api["referer"]
     data = api.get("data") if method == "POST" else None
     code_ok = api.get("code_ok", 200)
+    # 单页可覆盖：对已知会被拦的站点，重试次数和时间都调小，别在每轮里空耗几十秒
+    retries = int(api.get("retries") or retries)
+    timeout = int(api.get("timeout") or timeout)
 
     last_err = "unknown"
     blocked = 0

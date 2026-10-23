@@ -28,7 +28,9 @@
         "id_field": "Id",
         "content_field": "Content",
         "href_template": "https://cumcm.cnki.net/cumcm/studentHome/noticeDetail?id={id}",
-        "warmup": true
+        "warmup": true,
+        "retries": 1,
+        "timeout": 10
       }
     }
   ],
