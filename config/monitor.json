@@ -5,6 +5,12 @@
       "url": "https://sxjm.jxust.edu.cn/hjmd.htm"
     },
     {
+      "name": "模拟·更新演练页（测试用，随时删除）",
+      "url": "https://raw.githubusercontent.com/whlle-yi/hjmd-monitor/main/sim/index.html",
+      "require_date": false,
+      "title_pattern": "20\\d{2}"
+    },
+    {
       "name": "全国大学生数学建模竞赛官网·历年竞赛结果",
       "url": "https://www.mcm.edu.cn/html_cn/block/018500ec1a6bd8c7e9997133def2b590.html",
       "require_date": false,
