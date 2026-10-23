@@ -32,6 +32,7 @@ from pathlib import Path
 from urllib.parse import urljoin
 
 import requests
+import urllib3
 from bs4 import BeautifulSoup
 
 import award
@@ -46,6 +47,8 @@ UA = (
     "(KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
 )
 DATE_RE = re.compile(r"20\d{2}年\d{1,2}月\d{1,2}日")
+
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 
 def now_cn() -> str:
@@ -72,6 +75,21 @@ def write_json(path: Path, data) -> None:
 
 # ---------------------------------------------------------------- 抓取与解析
 
+def _send(sess: requests.Session, method: str, url: str, **kw):
+    """发一次请求；证书校验失败时降级为不校验再试一次。
+
+    原因：cumcm.cnki.net 这类国内站点对境外节点返回的证书与域名不匹配
+    （GitHub Actions 上必然踩到，本机在国内则正常）。抓的是公开只读内容，
+    降级可接受；日志里会留痕。
+    """
+    try:
+        return sess.request(method, url, **kw)
+    except requests.exceptions.SSLError:
+        log(f"证书校验不通过，改为不校验证书重试：{url.split('?')[0]}")
+        sess.verify = False
+        return sess.request(method, url, **kw)
+
+
 def fetch(url: str, timeout: int, retries: int = 3) -> str:
     """抓取页面：先走系统代理（若配置了），失败自动直连重试。"""
     last_err = "unknown"
@@ -80,8 +98,8 @@ def fetch(url: str, timeout: int, retries: int = 3) -> str:
             try:
                 sess = requests.Session()
                 sess.trust_env = not direct
-                r = sess.get(
-                    url,
+                r = _send(
+                    sess, "GET", url,
                     headers={"User-Agent": UA, "Accept-Language": "zh-CN,zh;q=0.9"},
                     timeout=timeout,
                 )
@@ -133,7 +151,7 @@ def fetch_api(item: dict, timeout: int, retries: int = 3) -> dict:
                 sess.trust_env = not direct
                 sep = "&" if "?" in url else "?"
                 bust = f"{url}{sep}_t={int(time.time() * 1000)}"  # 绕开接口/CDN 缓存
-                r = sess.request(method, bust, headers=headers, data=data, timeout=timeout)
+                r = _send(sess, method, bust, headers=headers, data=data, timeout=timeout)
                 if r.status_code != 200:
                     last_err = f"HTTP {r.status_code}"
                     continue

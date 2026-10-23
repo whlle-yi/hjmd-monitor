@@ -29,6 +29,9 @@ import time
 from urllib.parse import urlencode, urljoin
 
 import requests
+import urllib3
+
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 UA = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
@@ -73,9 +76,17 @@ def http(method: str, url: str, timeout: int, referer: str | None = None,
     for attempt in range(1, retries + 1):
         for direct in (False, True):
             try:
-                r = _session(direct).request(
-                    method, url, timeout=timeout, headers=headers, stream=stream, **kw
-                )
+                sess = _session(direct)
+                try:
+                    r = sess.request(
+                        method, url, timeout=timeout, headers=headers, stream=stream, **kw
+                    )
+                except requests.exceptions.SSLError:
+                    log(f"证书校验不通过，改为不校验证书重试：{url.split('?')[0]}")
+                    sess.verify = False
+                    r = sess.request(
+                        method, url, timeout=timeout, headers=headers, stream=stream, **kw
+                    )
                 if r.status_code == 200:
                     return r
                 last_err = f"HTTP {r.status_code}"
