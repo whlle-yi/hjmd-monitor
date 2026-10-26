@@ -47,6 +47,7 @@ UA = (
     "(KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
 )
 DATE_RE = re.compile(r"20\d{2}年\d{1,2}月\d{1,2}日")
+DASH_DATE_RE = re.compile(r"20\d{2}-\d{1,2}-\d{1,2}")
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
@@ -279,6 +280,15 @@ def visible_text(page_html: str) -> str:
     return "\n".join(lines)
 
 
+def find_date(text: str) -> str:
+    """在一段文本里找日期，支持「2026年10月6日」和「2026-10-06」两种写法，统一成年月日。"""
+    m = DATE_RE.search(text)
+    if m:
+        return m.group(0)
+    m = DASH_DATE_RE.search(text)
+    return norm_date(m.group(0)) if m else ""
+
+
 def parse_entries(
     soup: BeautifulSoup, base_url: str,
     require_date: bool = True, title_pattern: str | None = None,
@@ -306,11 +316,16 @@ def parse_entries(
             return
         container = a.find_parent("tr") or a.find_parent("td") or a.parent
         text_around = container.get_text(" ", strip=True) if container else ""
-        m = DATE_RE.search(text_around)
-        if need_date and not m:
+        date = find_date(text_around)
+        # 卡片式布局（div 套 div，日期和链接隔层）再往上看一层；表格布局不扩，避免抓到别的行的日期
+        if need_date and not date and container is not None \
+                and not a.find_parent("tr") and not a.find_parent("td") \
+                and container.parent is not None:
+            date = find_date(container.parent.get_text(" ", strip=True))
+        if need_date and not date:
             return
         seen.add(href)
-        entries.append({"title": title, "date": m.group(0) if m else "", "href": href})
+        entries.append({"title": title, "date": date, "href": href})
 
     table = soup.find("table", id="DataGrid1")
     if table:
