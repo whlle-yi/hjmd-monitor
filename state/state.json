@@ -215,13 +215,31 @@
       ],
       "text": "历年竞赛结果（模拟演练）\n历年竞赛结果\n2026高教社杯全国大学生数学建模竞赛获奖名单（模拟演练）\n2025高教社杯全国大学生数学建模竞赛获奖名单\n2024高教社杯全国大学生数学建模竞赛获奖名单",
       "last_change": "2026-10-24 01:30:05"
+    },
+    "https://dxs.moe.gov.cn/zx/hd/sxjm/gsyw/": {
+      "text_hash": "2c2085ec430d13defd81ad0ae737003835f74e83fd6fe171998ed2276051a4c8",
+      "entries": [
+        {
+          "title": "2026年全国大学生数学建模竞赛广东赛区获奖名单（初稿）",
+          "date": "2026年10月06日",
+          "href": "https://dxs.moe.gov.cn/zx/a/hd_sxjm_smkx/261006/2057096.shtml"
+        },
+        {
+          "title": "2026年全国大学生数学建模竞赛河北赛区获奖名单（公示版）",
+          "date": "2026年10月12日",
+          "href": "https://dxs.moe.gov.cn/zx/a/hd_sxjm_smkx/261012/2057453.shtml"
+        }
+      ],
+      "text": "国赛公告 - 中国大学生在线\n首页\n活动\n小中伴学\n阳光心理\n乐活校园\n专题资源\n校园号\n辅导员\n媒体矩阵\n无障碍\n我的\n退出\n登录/注册\n校园号登录\n投稿\n首页\n|\n活动\n|\n数学建模\n|\n国赛公告\n国赛公告\n查看更多\n大家都在看\n首个全国校园网络文明月集中展示活动举行\n2026-09-24\n首个全国校园网络文明月集中展示活动举行，亮点一起看\n教育部政务新媒体“微言教育”（微信号：jybxwb）\n2026-10-08\n2026年全国大学生数学建模竞赛广东赛区获奖名单（初稿）\n广东省大学生数学建模竞赛组织委员会\n2026-10-06\n2026年全国大学生数学建模竞赛河北赛区获奖名单（公示版）\n全国大学生数学建模竞河北赛区组委会\n2026-10-12\n2026新时代高校数学教学改革与创新交流会通知\n高等教育出版社\n2026-10-12\n中华人民共和国教育部\n|\n国家智慧教育公共服务平台\n|\n高等教育出版社\n|\n爱课程网\n|\n中国教育新闻网\n|\n中国学术前沿期刊\n|\n新华网\n|\n人民网\n|\n全国高校思想政治工作网\n|\n高校辅导员网络培训中心\n|\n中教华影数字服务股份有限公司\n|\n全国高校大学生心理健康综合服务平台\n|\n关于我们\n共建单位\n联系方式\n活动咨询\n©2004-2023 教育部中国大学生在线网站 版权所有\n京ICP备10028400号-2\n京公安网备11010502025664 网站标识码：bm05000002\n×\n投诉\n确认\n取消",
+      "last_change": "2026-10-26 23:24:04"
     }
   },
   "failures": {
     "https://sxjm.jxust.edu.cn/hjmd.htm": 0,
     "https://www.mcm.edu.cn/html_cn/block/018500ec1a6bd8c7e9997133def2b590.html": 0,
     "https://cumcm.cnki.net/cumcm/studentHome/noticeList": 0,
-    "https://raw.githubusercontent.com/whlle-yi/hjmd-monitor/main/sim/index.html": 1
+    "https://raw.githubusercontent.com/whlle-yi/hjmd-monitor/main/sim/index.html": 1,
+    "https://dxs.moe.gov.cn/zx/hd/sxjm/gsyw/": 0
   },
   "failure_alerted": {},
   "awards": {
