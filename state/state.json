@@ -219,7 +219,7 @@
   },
   "failures": {
     "https://sxjm.jxust.edu.cn/hjmd.htm": 0,
-    "https://www.mcm.edu.cn/html_cn/block/018500ec1a6bd8c7e9997133def2b590.html": 0,
+    "https://www.mcm.edu.cn/html_cn/block/018500ec1a6bd8c7e9997133def2b590.html": 1,
     "https://cumcm.cnki.net/cumcm/studentHome/noticeList": 0,
     "https://raw.githubusercontent.com/whlle-yi/hjmd-monitor/main/sim/index.html": 1
   },
