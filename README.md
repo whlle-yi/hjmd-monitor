@@ -1,0 +1,129 @@
+# hjmd-monitor — 数学建模获奖名单页面更新监控
+
+监控以下页面，任一页面有更新即自动发邮件提醒（收件邮箱见仓库 Secrets `MAIL_TO`）：
+
+- 全国大学生数学建模竞赛江西赛区官网「获奖名单」：https://sxjm.jxust.edu.cn/hjmd.htm
+- 全国大学生数学建模竞赛官网「历年竞赛结果」：https://www.mcm.edu.cn/html_cn/block/018500ec1a6bd8c7e9997133def2b590.html
+- 全国大学生数学建模竞赛官网「通知公告」：https://cumcm.cnki.net/cumcm/studentHome/noticeList （Vue 页面，走 JSON 接口）
+
+页面一有更新（新公告、条目修改等），自动发邮件提醒。程序运行在 **GitHub Actions 云端**，与本机无关——电脑关机、换网络都不影响监控。
+
+
+## 工作原理
+
+```
+GitHub Actions（接力触发，约每 5 分钟一轮）
+    └─ 运行 src/monitor.py
+         ├─ 逐个抓取 config 里的页面 → 提取可见文本 → 计算 SHA256 摘要
+         ├─ 与 state/state.json 中保存的上次摘要对比
+         │    ├─ 无变化 → 结束
+         │    └─ 有变化 → 解析条目、生成差异 → 发邮件 → 更新状态并提交回仓库
+         ├─ 连续抓取失败达到阈值 → 发一封异常提醒邮件（恢复后自动复位）
+         └─ 运行结束 → scripts/chain.py 隔约 5 分钟唤起下一次运行（自调节防多链）
+```
+
+- **触发机制**：主节奏由「接力触发」维持——每次运行结束时由仓库自带的 GITHUB_TOKEN 唤起
+  下一次，不依赖 GitHub 的定时调度器（后者对新工作流经常延迟数小时甚至丢运行）；
+  `monitor.yml` 里的 cron 仍保留作保底，链断了它会把监控拉起来。
+- **证书校验**：个别国内站点（如 `cumcm.cnki.net`）对境外节点返回的证书与域名不匹配，
+  从 GitHub Actions 访问会 SSL 校验失败（本机在国内则正常）。程序遇到证书校验失败会自动
+  降级为不校验证书重试一次，并在日志里留痕——抓的都是公开只读内容，可接受。
+- 对比基于**页面可见文本的哈希**（已剔除脚本/样式、压平空白），日期导航等真实内容变化才会触发。
+  配置了 `api` 的页面则哈希「接口返回的条目（日期+标题+正文）」，效果一致。
+- 邮件内容：新增公告（标题+日期+可点击链接）、标题修改、移除条目、完整最新列表。
+- 邮件发送**先于**状态更新：发信失败时状态不推进，下一轮自动重发，不会漏报。
+- 对方服务器临时挂掉不会误报为"更新"，连续失败 30 分钟才发一封异常提醒。
+
+## 目录结构
+
+```
+hjmd-monitor/
+├── .github/workflows/monitor.yml   # GitHub Actions 定时工作流
+├── config/monitor.json             # 监控配置（页面列表、阈值，无敏感信息）
+├── src/monitor.py                  # 监控脚本（抓取、比对、发信、状态维护）
+├── state/state.json                # 运行状态（页面哈希、公告列表、失败计数），由脚本自动维护
+├── requirements.txt
+└── README.md
+```
+
+## 报名系统被反爬拦截（实测结论）
+
+`cumcm.cnki.net` 对**境外 IP 一律返回 HTTP 418**（WAF 反爬）。已实测：
+
+- 本机（国内）访问正常，接口返回 200；
+- 从 GitHub Actions 访问，TLS 证书也是错的（返回的不是 `*.cnki.net`），
+  降级为不校验证书后紧接着就是 418；
+- 加了「先访问页面拿 Cookie 再调接口」的会话预热，**仍然 418**，说明是 IP/风控层面拦的，不是缺 Cookie。
+
+所以这一页在云端实际拿不到数据。目前的处理：每轮约 4 秒快速失败、只记一行日志，
+**不计入「连续抓取失败」、不发异常提醒邮件**（`SiteBlocked` 单独处理），
+这样既不会每 5 分钟骚扰你，也保留了这个配置——万一哪天放开了，它会自动恢复。
+
+如果不想要这行日志，把 `config/monitor.json` 里第三项（`cumcm.cnki.net`）从 `urls` 删掉即可，
+另外两个页面已经覆盖了同一批获奖名单。
+
+## 部署（一次性，已由助手完成的部分见对话记录）
+
+1. 在 GitHub 创建**公开**仓库（public 仓库 Actions 免费额度不限量；私有仓库每月 2000 分钟不够用）。
+2. 上传本目录全部文件。
+3. 添加仓库 Secrets（Settings → Secrets and variables → Actions）：见下表。
+4. 手动触发一次工作流验证（Actions → 网页更新监控 → Run workflow）。
+
+### Secrets 一览
+
+| 名称 | 说明 | 示例 |
+| --- | --- | --- |
+| `SMTP_HOST` | SMTP 服务器地址 | `smtp.qq.com` / `smtp.163.com` / `smtp.gmail.com` |
+| `SMTP_PORT` | 端口，SSL 用 `465`，STARTTLS 用 `587` | `465` |
+| `SMTP_USER` | 发件邮箱账号 | `xxx@qq.com` |
+| `SMTP_PASS` | 邮箱 SMTP **授权码**（不是登录密码） | QQ/163 在邮箱设置里开启 SMTP 后生成 |
+| `MAIL_TO` | 收件邮箱，多个用英文逗号分隔 | `xxx@qq.com` |
+
+代码与状态文件中不含任何凭据，全部走 GitHub 加密 Secrets，公开仓库无泄露风险。
+
+## 日常维护
+
+- **手动触发检查**：Actions → 网页更新监控 → Run workflow（注意：手动触发会重新点燃接力链，
+  由链内自调节机制保证不会出现多条并行链）。
+- **改检查节奏**：改 `scripts/chain.py` 读取的 `TARGET_INTERVAL`（monitor.yml 中该步骤的
+  env，单位秒）；`monitor.yml` 中 cron 为保底触发，最短 `*/5`。
+- **增加监控页面**：在 `config/monitor.json` 的 `urls` 数组里加一项，可选参数：
+  - `require_date`（默认 `true`）：是否要求条目旁有「20XX年X月X日」格式的日期；纯链接列表页设为 `false`；
+  - `title_pattern`：按标题正则过滤条目（如官网历年结果页设 `"20\\d{2}"` 只保留带年份的获奖名单链接）。
+- **增加 JSON 接口页面**（Vue / 前后端分离站点，页面源码里没有列表内容）：给该监控项加 `api` 字段，
+  程序就会去抓接口而不是解析 HTML，无需改代码。字段说明（除 `url` 外均可省略）：
+
+  | 字段 | 默认值 | 说明 |
+  | --- | --- | --- |
+  | `url` | 必填 | 接口地址 |
+  | `method` | `POST` | 请求方法 |
+  | `data` | 无 | POST 表单参数（如 `{"pageIndex":1,"pageSize":50}`） |
+  | `referer` | 无 | 部分站点校验 Referer，缺失会被 403 |
+  | `list_path` | `Data.data` | 条目数组在返回 JSON 中的点分路径 |
+  | `title_field` / `date_field` / `id_field` | `Title` / `PublishTime` / `Id` | 字段名 |
+  | `content_field` | 无 | 正文所在字段，填了就把正文也纳入哈希（正文被改也能发现） |
+  | `href_template` | `{id}` | 详情链接模板，`{id}` / `{title}` 会被替换；相对路径按页面 `url` 补全 |
+  | `code_ok` | `200` | 返回体 `Code` 等于该值才算成功；不匹配按「抓取失败」计 |
+
+  `api` 模式不看 `require_date`/`title_pattern`，日期会统一成「2026年05月14日」的邮件风格。
+- **收不到邮件**：先检查垃圾箱；再把发件邮箱加入联系人/白名单。
+- **本地调试**（可选）：`python src/monitor.py --dry-run`——不发邮件、不推送，邮件内容打印到终端。
+- **更新代码后部署**：`python scripts/deploy.py upload config/monitor.json src/monitor.py README.md`。
+  注意 `upload` 不带参数会上传**全部**文件（含 `state/state.json`），会把云端真实运行状态覆盖成
+  本地旧状态，导致重复提醒或漏报，所以请显式列出要改的文件，不要全量上传。
+  新监控项第一次运行会自动建基线、不发提醒，不需要预先往 `state.json` 里塞数据。
+
+## 为什么不会被 GitHub 停用
+
+GitHub 会把 **60 天无活动**的仓库定时工作流自动停用。本项目有两道保险：
+
+1. 每次检测到更新都会提交状态文件，本身就是仓库活动；
+2. 页面长期无变化时，脚本每 7 天自动做一次空提交（keepalive）。
+
+## 已知边界
+
+- 抓取的是列表页本身；新公告发布后，邮件里直接给出该公告的详情链接。
+- 接力链依赖 GITHUB_TOKEN 唤起下一次运行；极端情况下（GitHub 平台事故）链可能中断，
+  此时 `monitor.yml` 里的 cron 定时器是保底，仍会每 5 分钟尝试触发。
+- GitHub Actions 定时任务在高峰期偶尔跳过/延迟，不影响正确性（状态对比与上次成功结果
+  进行，不依赖连续性）。
