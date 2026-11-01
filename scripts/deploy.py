@@ -87,7 +87,7 @@ def upload(only: list[str] | None = None) -> None:
         body["content"] = base64.b64encode(raw).decode()
         # 提交作者/提交者固定用 noreply 邮箱，不暴露账号真实邮箱
         body["author"] = body["committer"] = {
-            "name": REPO.split("/")[1], "email": f"{GH_USER_ID}+{REPO.split('/')[1]}@users.noreply.github.com",
+            "name": "whlle-yi", "email": f"{GH_USER_ID}+whlle-yi@users.noreply.github.com",
         }
         r = call("PUT", f"/repos/{REPO}/contents/{rel}", json=body)
         if r.status_code in (200, 201):
