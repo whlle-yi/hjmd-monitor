@@ -33,6 +33,20 @@ jobs:
       - name: 安装依赖
         run: pip install -r requirements.txt
 
+      # 侦察间隔：平时 15 分钟；「加密窗口」内 2 分钟。
+      # 窗口 = 北京时间 2026-11-07 19:40 ～ 21:00（名单公布概率最高的时段），
+      # 窗口外自动恢复 15 分钟，无需人工干预。接力链每轮实时读取本间隔。
+      - name: 计算本轮侦察间隔
+        run: |
+          H=$(TZ=Asia/Shanghai date +%m%d%H%M)
+          if [ "$H" -ge 11071940 ] && [ "$H" -le 11072100 ]; then
+            echo "进入加密侦察窗口（2 分钟/轮）: $H"
+            echo "TARGET_INTERVAL=120" >> "$GITHUB_ENV"
+          else
+            echo "常规节奏（15 分钟/轮）: $H"
+            echo "TARGET_INTERVAL=900" >> "$GITHUB_ENV"
+          fi
+
       - name: 执行监控
         env:
           SMTP_HOST: ${{ secrets.SMTP_HOST }}
@@ -47,5 +61,4 @@ jobs:
         if: always()
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TARGET_INTERVAL: '900'
         run: python3 scripts/chain.py
