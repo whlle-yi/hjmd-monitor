@@ -24,7 +24,7 @@ REPO = os.environ["GITHUB_REPOSITORY"]
 TOKEN = os.environ["GH_TOKEN"]
 BRANCH = os.environ.get("GITHUB_REF_NAME", "main")
 RUN_ID = os.environ.get("GITHUB_RUN_ID", "")
-TARGET = int(os.environ.get("TARGET_INTERVAL", "280"))  # 相邻两次运行的启动间隔（秒）
+TARGET = int(os.environ.get("TARGET_INTERVAL", "900"))  # 相邻两次运行的启动间隔（秒），workflow 里按时间窗动态计算
 API = f"https://api.github.com/repos/{REPO}"
 
 
